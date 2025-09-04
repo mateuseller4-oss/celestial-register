@@ -8,33 +8,53 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 220 15% 97%;
+    --foreground: 215 25% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 25% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 215 25% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 221 69% 32%;
+    --primary-foreground: 0 0% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 45 85% 65%;
+    --secondary-foreground: 215 25% 15%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 14% 95%;
+    --muted-foreground: 215 15% 50%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 45 85% 65%;
+    --accent-foreground: 215 25% 15%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 220 13% 88%;
+    --input: 220 13% 91%;
+    --ring: 221 69% 32%;
+
+    /* Custom design tokens for theological school */
+    --divine-blue: 221 69% 32%;
+    --divine-blue-light: 221 69% 45%;
+    --divine-gold: 45 85% 65%;
+    --divine-gold-dark: 45 85% 50%;
+    --sacred-white: 0 0% 98%;
+    --wisdom-gray: 215 15% 50%;
+    
+    /* Gradients */
+    --gradient-divine: linear-gradient(135deg, hsl(var(--divine-blue)), hsl(var(--divine-blue-light)));
+    --gradient-sacred: linear-gradient(180deg, hsl(var(--sacred-white)), hsl(220 15% 97%));
+    --gradient-wisdom: linear-gradient(135deg, hsl(var(--divine-gold)), hsl(var(--divine-gold-dark)));
+    
+    /* Shadows */
+    --shadow-divine: 0 10px 30px -10px hsl(var(--divine-blue) / 0.3);
+    --shadow-sacred: 0 4px 20px -4px hsl(var(--divine-blue) / 0.1);
+    
+    /* Animations */
+    --transition-divine: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     --radius: 0.5rem;
 

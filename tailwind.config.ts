@@ -52,6 +52,21 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				// Custom theological school colors
+				divine: {
+					DEFAULT: 'hsl(var(--divine-blue))',
+					light: 'hsl(var(--divine-blue-light))',
+					foreground: 'hsl(var(--sacred-white))'
+				},
+				sacred: {
+					DEFAULT: 'hsl(var(--sacred-white))',
+					foreground: 'hsl(var(--foreground))'
+				},
+				wisdom: {
+					DEFAULT: 'hsl(var(--divine-gold))',
+					dark: 'hsl(var(--divine-gold-dark))',
+					foreground: 'hsl(var(--foreground))'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
