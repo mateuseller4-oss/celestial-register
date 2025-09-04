@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { BookOpen, Users, Calendar } from "lucide-react";
 
 export default function AttendanceForm() {
@@ -21,27 +21,47 @@ export default function AttendanceForm() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // TODO: Implement email sending functionality with Supabase
-    console.log("Attendance data:", formData);
-    
-    toast({
-      title: "Chamada registrada!",
-      description: "Sua presença foi registrada com sucesso.",
-    });
+    try {
+      // Enviar dados via Edge Function
+      const { data, error } = await supabase.functions.invoke('send-attendance-email', {
+        body: {
+          ...formData,
+          teacherEmail: 'mateuseller4@gmail.com'
+        }
+      });
 
-    // Reset form
-    setFormData({ email: "", fullName: "", age: "", day: "" });
-    setIsSubmitting(false);
+      if (error) {
+        throw error;
+      }
+      
+      toast({
+        title: "Presença registrada com sucesso!",
+        description: "Sua presença foi registrada e um e-mail foi enviado para o professor.",
+      });
+      
+      // Reset form
+      setFormData({
+        email: '',
+        fullName: '',
+        age: '',
+        day: ''
+      });
+    } catch (error) {
+      console.error('Erro ao registrar presença:', error);
+      toast({
+        title: "Erro ao registrar presença",
+        description: "Ocorreu um erro. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const getDaysOfWeek = () => {
-    const days = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"];
-    return days;
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-gradient-to-br from-background via-background to-muted">
@@ -122,20 +142,22 @@ export default function AttendanceForm() {
               <div className="space-y-2">
                 <Label htmlFor="day" className="text-sm font-medium text-foreground flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-divine" />
-                  Dia da Aula
+                  Dia da Aula (1-7)
                 </Label>
-                <Select value={formData.day} onValueChange={(value) => handleInputChange("day", value)} required>
-                  <SelectTrigger className="h-11 bg-card border-border/60 focus:border-divine focus:ring-divine/20 transition-[var(--transition-divine)]">
-                    <SelectValue placeholder="Selecione o dia da aula" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getDaysOfWeek().map((day) => (
-                      <SelectItem key={day} value={day}>
-                        {day}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="day"
+                  type="number"
+                  min="1"
+                  max="7"
+                  value={formData.day}
+                  onChange={(e) => handleInputChange('day', e.target.value)}
+                  placeholder="Digite o número do dia (1=Segunda, 7=Domingo)"
+                  required
+                  className="h-11 bg-card border-border/60 focus:border-divine focus:ring-divine/20 transition-[var(--transition-divine)]"
+                />
+                <p className="text-sm text-muted-foreground">
+                  1=Segunda, 2=Terça, 3=Quarta, 4=Quinta, 5=Sexta, 6=Sábado, 7=Domingo
+                </p>
               </div>
 
               <Button
