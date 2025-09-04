@@ -26,7 +26,7 @@ export default function AttendanceForm() {
       const { data, error } = await supabase.functions.invoke('send-attendance-email', {
         body: {
           ...formData,
-          teacherEmail: 'mateuseller4@gmail.com'
+          teacherEmail: 'elpisescolateologica@gmail.com'
         }
       });
 
