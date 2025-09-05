@@ -1,8 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -31,27 +29,45 @@ const getDayName = (dayNumber: string): string => {
 };
 
 const handler = async (req: Request): Promise<Response> => {
+  console.log("Função iniciada - método:", req.method);
+
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
+    console.log("Requisição OPTIONS recebida");
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log("Função send-attendance-email chamada");
-    
+    console.log("Tentando ler o corpo da requisição...");
     const requestBody = await req.json();
-    console.log("Dados recebidos:", requestBody);
+    console.log("Dados recebidos:", JSON.stringify(requestBody, null, 2));
     
     const { email, fullName, age, day, teacherEmail }: AttendanceRequest = requestBody;
 
     if (!email || !fullName || !age || !day || !teacherEmail) {
-      console.error("Dados faltando:", { email, fullName, age, day, teacherEmail });
-      throw new Error("Todos os campos são obrigatórios");
+      const errorMsg = "Dados faltando";
+      console.error(errorMsg, { email: !!email, fullName: !!fullName, age: !!age, day: !!day, teacherEmail: !!teacherEmail });
+      return new Response(JSON.stringify({ error: errorMsg }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
-    console.log("Enviando email para:", teacherEmail);
+    console.log("Verificando chave API do Resend...");
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      console.error("RESEND_API_KEY não configurada");
+      return new Response(JSON.stringify({ error: "API key não configurada" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    console.log("Inicializando Resend...");
+    const resend = new Resend(resendApiKey);
 
     const dayName = getDayName(day);
+    console.log("Enviando email para:", teacherEmail);
 
     // Enviar email para o professor
     const emailResponse = await resend.emails.send({
@@ -100,7 +116,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Email enviado com sucesso:", emailResponse);
 
-    return new Response(JSON.stringify({ success: true, emailResponse }), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      emailResponse,
+      message: "Presença registrada e e-mail enviado com sucesso!"
+    }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
@@ -108,9 +128,14 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
   } catch (error: any) {
-    console.error("Erro na função send-attendance-email:", error);
+    console.error("Erro completo na função:", error);
+    console.error("Stack trace:", error.stack);
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: "Verifique os logs da função para mais detalhes"
+      }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
