@@ -37,9 +37,19 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, fullName, age, day, teacherEmail }: AttendanceRequest = await req.json();
+    console.log("Função send-attendance-email chamada");
+    
+    const requestBody = await req.json();
+    console.log("Dados recebidos:", requestBody);
+    
+    const { email, fullName, age, day, teacherEmail }: AttendanceRequest = requestBody;
 
-    console.log("Recebida chamada para:", { email, fullName, age, day });
+    if (!email || !fullName || !age || !day || !teacherEmail) {
+      console.error("Dados faltando:", { email, fullName, age, day, teacherEmail });
+      throw new Error("Todos os campos são obrigatórios");
+    }
+
+    console.log("Enviando email para:", teacherEmail);
 
     const dayName = getDayName(day);
 
