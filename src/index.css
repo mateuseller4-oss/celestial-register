@@ -39,22 +39,32 @@ All colors MUST be HSL.
     /* Custom design tokens for theological school */
     --divine-blue: 221 69% 32%;
     --divine-blue-light: 221 69% 45%;
+    --divine-purple: 258 60% 50%;
+    --divine-purple-light: 258 60% 65%;
     --divine-gold: 45 85% 65%;
     --divine-gold-dark: 45 85% 50%;
     --sacred-white: 0 0% 98%;
     --wisdom-gray: 215 15% 50%;
+    --success-green: 122 39% 49%;
+    --error-red: 0 84% 60%;
     
-    /* Gradients */
+    /* Modern gradients */
+    --gradient-main: linear-gradient(135deg, hsl(var(--divine-blue)), hsl(var(--divine-purple)));
     --gradient-divine: linear-gradient(135deg, hsl(var(--divine-blue)), hsl(var(--divine-blue-light)));
     --gradient-sacred: linear-gradient(180deg, hsl(var(--sacred-white)), hsl(220 15% 97%));
     --gradient-wisdom: linear-gradient(135deg, hsl(var(--divine-gold)), hsl(var(--divine-gold-dark)));
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%), hsl(220 15% 97%));
     
-    /* Shadows */
+    /* Enhanced shadows */
     --shadow-divine: 0 10px 30px -10px hsl(var(--divine-blue) / 0.3);
     --shadow-sacred: 0 4px 20px -4px hsl(var(--divine-blue) / 0.1);
+    --shadow-card: 0 20px 40px -10px hsl(0 0% 0% / 0.1);
+    --shadow-elevated: 0 10px 25px -5px hsl(var(--divine-blue) / 0.2);
     
     /* Animations */
     --transition-divine: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: all 0.3s ease;
+    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
     --radius: 0.5rem;
 
