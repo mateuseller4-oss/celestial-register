@@ -20,35 +20,11 @@ serve(async (req: Request) => {
     console.log("Dados recebidos:", JSON.stringify(body, null, 2));
 
     const { email, fullName, age, day, materia } = body;
-    
-    console.log("Campos extraídos:");
-    console.log("- email:", email);
-    console.log("- fullName:", fullName);
-    console.log("- age:", age);
-    console.log("- day:", day);
-    console.log("- materia:", materia);
 
     if (!email || !fullName || !age || !day || !materia) {
       console.log("ERRO: Dados faltando!");
-      console.log("Verificação individual:");
-      console.log("- email presente:", !!email);
-      console.log("- fullName presente:", !!fullName);
-      console.log("- age presente:", !!age);
-      console.log("- day presente:", !!day);
-      console.log("- materia presente:", !!materia);
-      
       return new Response(
-        JSON.stringify({ 
-          error: "Dados incompletos", 
-          receivedData: body,
-          validation: {
-            email: !!email,
-            fullName: !!fullName,
-            age: !!age,
-            day: !!day,
-            materia: !!materia
-          }
-        }),
+        JSON.stringify({ error: "Dados incompletos", receivedData: body }),
         {
           status: 400,
           headers: { "Content-Type": "application/json", ...corsHeaders }
@@ -74,24 +50,13 @@ serve(async (req: Request) => {
 
     const materiaName = materias[materia] || materia;
 
-    console.log("=== PREPARANDO ENVIO DE EMAIL VIA EMAILJS ===");
+    console.log("=== ENVIANDO EMAIL VIA RESEND ===");
 
-    // Obter as credenciais do EmailJS
-    const serviceId = Deno.env.get("EMAILJS_SERVICE_ID");
-    const templateId = Deno.env.get("EMAILJS_TEMPLATE_ID");
-    const publicKey = Deno.env.get("EMAILJS_PUBLIC_KEY");
-
-    if (!serviceId || !templateId || !publicKey) {
-      console.log("Credenciais do EmailJS não configuradas!");
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      console.log("RESEND_API_KEY não encontrada!");
       return new Response(
-        JSON.stringify({ 
-          error: "Credenciais do EmailJS não configuradas",
-          missing: {
-            serviceId: !serviceId,
-            templateId: !templateId,
-            publicKey: !publicKey
-          }
-        }),
+        JSON.stringify({ error: "API key do Resend não configurada" }),
         {
           status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders }
@@ -99,58 +64,45 @@ serve(async (req: Request) => {
       );
     }
 
-    console.log("Credenciais do EmailJS encontradas, enviando email...");
+    console.log("API key encontrada, importando Resend...");
+    const { Resend } = await import("npm:resend@2.0.0");
+    const resend = new Resend(resendApiKey);
 
-    // Preparar os parâmetros para o template do EmailJS
-    const templateParams = {
-      to_email: "elpisescolateologica@gmail.com",
-      from_name: fullName,
-      student_name: fullName,
-      student_email: email,
-      student_age: age,
-      class_day: dayName,
-      subject_name: materiaName,
-      attendance_date: new Date().toLocaleString('pt-BR'),
-      message: `Nova presença registrada:
-      
-Nome: ${fullName}
-Email: ${email}
-Idade: ${age} anos
-Dia da Aula: ${dayName}
-Matéria: ${materiaName}
-Data/Hora: ${new Date().toLocaleString('pt-BR')}`
-    };
-
-    // Enviar email via EmailJS API
-    const emailjsResponse = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        service_id: serviceId,
-        template_id: templateId,
-        user_id: publicKey,
-        template_params: templateParams
-      })
+    console.log("Enviando email...");
+    const emailResult = await resend.emails.send({
+      from: "Escola Teológica Elpis <onboarding@resend.dev>",
+      to: ["elpisescolateologica@gmail.com"],
+      subject: `Nova Presença: ${fullName} - ${dayName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9;">
+          <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h1 style="color: #333; border-bottom: 3px solid #4CAF50; padding-bottom: 10px;">📖 Nova Presença Registrada</h1>
+            
+            <div style="background: #f0f8f0; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <p style="margin: 8px 0;"><strong>👤 Nome:</strong> ${fullName}</p>
+              <p style="margin: 8px 0;"><strong>📧 Email:</strong> ${email}</p>
+              <p style="margin: 8px 0;"><strong>🎂 Idade:</strong> ${age} anos</p>
+              <p style="margin: 8px 0;"><strong>📅 Dia da Aula:</strong> ${dayName}</p>
+              <p style="margin: 8px 0;"><strong>📚 Matéria:</strong> ${materiaName}</p>
+              <p style="margin: 8px 0;"><strong>🕐 Data/Hora:</strong> ${new Date().toLocaleString('pt-BR')}</p>
+            </div>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; text-align: center;">
+              <p>Sistema de Chamada Online - Escola Teológica Elpis</p>
+            </div>
+          </div>
+        </div>
+      `,
     });
 
-    console.log("Status da resposta do EmailJS:", emailjsResponse.status);
-    const emailjsResponseText = await emailjsResponse.text();
-    console.log("Resposta do EmailJS:", emailjsResponseText);
-
-    if (!emailjsResponse.ok) {
-      throw new Error(`EmailJS erro: ${emailjsResponse.status} - ${emailjsResponseText}`);
-    }
-
-    console.log("Email enviado com sucesso via EmailJS!");
+    console.log("Email enviado com sucesso!", emailResult);
 
     return new Response(
       JSON.stringify({ 
         success: true,
         message: "Presença registrada e email enviado para elpisescolateologica@gmail.com!",
-        emailService: "EmailJS",
-        sentTo: "elpisescolateologica@gmail.com"
+        emailService: "Resend",
+        emailId: emailResult.data?.id
       }),
       {
         status: 200,
