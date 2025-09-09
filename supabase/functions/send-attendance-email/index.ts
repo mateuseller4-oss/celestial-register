@@ -17,20 +17,46 @@ serve(async (req: Request) => {
   try {
     console.log("Tentando ler JSON...");
     const body = await req.json();
-    console.log("Dados recebidos:", body);
+    console.log("Dados recebidos:", JSON.stringify(body, null, 2));
 
     const { email, fullName, age, day, materia } = body;
+    
+    console.log("Campos extraídos:");
+    console.log("- email:", email);
+    console.log("- fullName:", fullName);
+    console.log("- age:", age);
+    console.log("- day:", day);
+    console.log("- materia:", materia);
 
     if (!email || !fullName || !age || !day || !materia) {
-      console.log("Dados faltando!");
+      console.log("ERRO: Dados faltando!");
+      console.log("Verificação individual:");
+      console.log("- email presente:", !!email);
+      console.log("- fullName presente:", !!fullName);
+      console.log("- age presente:", !!age);
+      console.log("- day presente:", !!day);
+      console.log("- materia presente:", !!materia);
+      
       return new Response(
-        JSON.stringify({ error: "Dados incompletos", receivedData: body }),
+        JSON.stringify({ 
+          error: "Dados incompletos", 
+          receivedData: body,
+          validation: {
+            email: !!email,
+            fullName: !!fullName,
+            age: !!age,
+            day: !!day,
+            materia: !!materia
+          }
+        }),
         {
           status: 400,
           headers: { "Content-Type": "application/json", ...corsHeaders }
         }
       );
     }
+
+    console.log("✅ Todos os dados estão presentes!");
 
     const days = ['', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'];
     const dayName = days[parseInt(day)] || `Dia ${day}`;
