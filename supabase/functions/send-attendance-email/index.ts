@@ -95,7 +95,19 @@ serve(async (req: Request) => {
       `,
     });
 
-    console.log("Email enviado com sucesso!", emailResult);
+    console.log("📧 Resultado do Resend:", JSON.stringify(emailResult, null, 2));
+    
+    if (emailResult.error) {
+      console.error("❌ ERRO DO RESEND:", emailResult.error);
+      throw new Error(`Erro do Resend: ${JSON.stringify(emailResult.error)}`);
+    }
+    
+    if (emailResult.data) {
+      console.log("✅ Email enviado com ID:", emailResult.data.id);
+      console.log("📤 Destinatário:", "elpisescolateologica@gmail.com");
+    } else {
+      console.log("⚠️ Resposta sem data:", emailResult);
+    }
 
     return new Response(
       JSON.stringify({ 
