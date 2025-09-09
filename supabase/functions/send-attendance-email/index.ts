@@ -8,7 +8,6 @@ const corsHeaders = {
 serve(async (req: Request) => {
   console.log("=== FUNÇÃO INICIADA ===");
   console.log("Método:", req.method);
-  console.log("URL:", req.url);
 
   if (req.method === "OPTIONS") {
     console.log("Retornando CORS para OPTIONS");
@@ -20,9 +19,9 @@ serve(async (req: Request) => {
     const body = await req.json();
     console.log("Dados recebidos:", body);
 
-    const { email, fullName, age, day, teacherEmail } = body;
+    const { email, fullName, age, day, materia } = body;
 
-    if (!email || !fullName || !age || !day || !teacherEmail) {
+    if (!email || !fullName || !age || !day || !materia) {
       console.log("Dados faltando!");
       return new Response(
         JSON.stringify({ error: "Dados incompletos", receivedData: body }),
@@ -36,13 +35,37 @@ serve(async (req: Request) => {
     const days = ['', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'];
     const dayName = days[parseInt(day)] || `Dia ${day}`;
 
-    console.log("=== TENTANDO ENVIAR EMAIL ===");
+    const materias = {
+      'teologia-sistematica': 'Teologia Sistemática',
+      'hermeneutica': 'Hermenêutica Bíblica',
+      'historia-igreja': 'História da Igreja',
+      'homiletica': 'Homilética',
+      'teologia-pastoral': 'Teologia Pastoral',
+      'apologetica': 'Apologética',
+      'missoes': 'Missões',
+      'etica-crista': 'Ética Cristã'
+    };
 
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) {
-      console.log("RESEND_API_KEY não encontrada!");
+    const materiaName = materias[materia] || materia;
+
+    console.log("=== PREPARANDO ENVIO DE EMAIL VIA EMAILJS ===");
+
+    // Obter as credenciais do EmailJS
+    const serviceId = Deno.env.get("EMAILJS_SERVICE_ID");
+    const templateId = Deno.env.get("EMAILJS_TEMPLATE_ID");
+    const publicKey = Deno.env.get("EMAILJS_PUBLIC_KEY");
+
+    if (!serviceId || !templateId || !publicKey) {
+      console.log("Credenciais do EmailJS não configuradas!");
       return new Response(
-        JSON.stringify({ error: "API key não configurada" }),
+        JSON.stringify({ 
+          error: "Credenciais do EmailJS não configuradas",
+          missing: {
+            serviceId: !serviceId,
+            templateId: !templateId,
+            publicKey: !publicKey
+          }
+        }),
         {
           status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders }
@@ -50,32 +73,58 @@ serve(async (req: Request) => {
       );
     }
 
-    console.log("API key encontrada, importando Resend...");
-    const { Resend } = await import("npm:resend@2.0.0");
-    const resend = new Resend(resendApiKey);
+    console.log("Credenciais do EmailJS encontradas, enviando email...");
 
-    console.log("Enviando email...");
-    const emailResult = await resend.emails.send({
-      from: "Escola Teológica <onboarding@resend.dev>",
-      to: [teacherEmail],
-      subject: `Presença: ${fullName} - ${dayName}`,
-      html: `
-        <h1>Nova Presença Registrada</h1>
-        <p><strong>Nome:</strong> ${fullName}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Idade:</strong> ${age} anos</p>
-        <p><strong>Dia:</strong> ${dayName}</p>
-        <p><strong>Data:</strong> ${new Date().toLocaleString('pt-BR')}</p>
-      `,
+    // Preparar os parâmetros para o template do EmailJS
+    const templateParams = {
+      to_email: "elpisescolateologica@gmail.com",
+      from_name: fullName,
+      student_name: fullName,
+      student_email: email,
+      student_age: age,
+      class_day: dayName,
+      subject_name: materiaName,
+      attendance_date: new Date().toLocaleString('pt-BR'),
+      message: `Nova presença registrada:
+      
+Nome: ${fullName}
+Email: ${email}
+Idade: ${age} anos
+Dia da Aula: ${dayName}
+Matéria: ${materiaName}
+Data/Hora: ${new Date().toLocaleString('pt-BR')}`
+    };
+
+    // Enviar email via EmailJS API
+    const emailjsResponse = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        service_id: serviceId,
+        template_id: templateId,
+        user_id: publicKey,
+        template_params: templateParams
+      })
     });
 
-    console.log("Email enviado!", emailResult);
+    console.log("Status da resposta do EmailJS:", emailjsResponse.status);
+    const emailjsResponseText = await emailjsResponse.text();
+    console.log("Resposta do EmailJS:", emailjsResponseText);
+
+    if (!emailjsResponse.ok) {
+      throw new Error(`EmailJS erro: ${emailjsResponse.status} - ${emailjsResponseText}`);
+    }
+
+    console.log("Email enviado com sucesso via EmailJS!");
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: "Presença registrada e email enviado!",
-        emailId: emailResult.data?.id
+        message: "Presença registrada e email enviado para elpisescolateologica@gmail.com!",
+        emailService: "EmailJS",
+        sentTo: "elpisescolateologica@gmail.com"
       }),
       {
         status: 200,

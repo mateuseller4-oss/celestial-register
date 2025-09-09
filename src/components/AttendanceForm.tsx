@@ -96,11 +96,14 @@ export default function AttendanceForm() {
     setIsSubmitting(true);
 
     try {
-      // Send email via Edge Function
+      // Send data via Edge Function
       const { data, error } = await supabase.functions.invoke('send-attendance-email', {
         body: {
-          ...formData,
-          teacherEmail: 'elpisescolateologica@gmail.com'
+          email: formData.email,
+          fullName: formData.fullName,
+          age: formData.age,
+          day: formData.day,
+          materia: formData.materia
         }
       });
 
