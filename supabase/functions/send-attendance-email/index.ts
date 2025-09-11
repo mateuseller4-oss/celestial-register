@@ -8,6 +8,8 @@ const corsHeaders = {
 serve(async (req: Request) => {
   console.log("=== FUNÇÃO INICIADA ===");
   console.log("Método:", req.method);
+  console.log("URL:", req.url);
+  console.log("Headers:", Object.fromEntries(req.headers.entries()));
 
   if (req.method === "OPTIONS") {
     console.log("Retornando CORS para OPTIONS");
@@ -53,8 +55,11 @@ serve(async (req: Request) => {
     console.log("=== ENVIANDO EMAIL VIA RESEND ===");
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    console.log("RESEND_API_KEY encontrada:", resendApiKey ? "SIM" : "NÃO");
+    console.log("Tamanho da chave:", resendApiKey ? resendApiKey.length : 0);
+    
     if (!resendApiKey) {
-      console.log("RESEND_API_KEY não encontrada!");
+      console.log("❌ RESEND_API_KEY não encontrada!");
       return new Response(
         JSON.stringify({ error: "API key do Resend não configurada" }),
         {
@@ -66,8 +71,16 @@ serve(async (req: Request) => {
 
     console.log("API key encontrada, importando Resend...");
     const { Resend } = await import("npm:resend@2.0.0");
+    console.log("Resend importado com sucesso");
+    
     const resend = new Resend(resendApiKey);
+    console.log("Cliente Resend criado");
 
+    console.log("Preparando dados do email...");
+    console.log("De: Escola Teológica Elpis <onboarding@resend.dev>");
+    console.log("Para: elpisescolateologica@gmail.com");
+    console.log("Assunto:", `Nova Presença: ${fullName} - ${dayName}`);
+    
     console.log("Enviando email...");
     const emailResult = await resend.emails.send({
       from: "Escola Teológica Elpis <onboarding@resend.dev>",
@@ -109,13 +122,18 @@ serve(async (req: Request) => {
       console.log("⚠️ Resposta sem data:", emailResult);
     }
 
+    console.log("=== PREPARANDO RESPOSTA DE SUCESSO ===");
+    const successResponse = { 
+      success: true,
+      message: "Presença registrada e email enviado para elpisescolateologica@gmail.com!",
+      emailService: "Resend",
+      emailId: emailResult.data?.id,
+      timestamp: new Date().toISOString()
+    };
+    console.log("Resposta de sucesso:", JSON.stringify(successResponse, null, 2));
+
     return new Response(
-      JSON.stringify({ 
-        success: true,
-        message: "Presença registrada e email enviado para elpisescolateologica@gmail.com!",
-        emailService: "Resend",
-        emailId: emailResult.data?.id
-      }),
+      JSON.stringify(successResponse),
       {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders }

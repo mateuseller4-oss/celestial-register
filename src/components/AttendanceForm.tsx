@@ -96,6 +96,9 @@ export default function AttendanceForm() {
     setIsSubmitting(true);
 
     try {
+      console.log("=== ENVIANDO DADOS PARA EDGE FUNCTION ===");
+      console.log("Dados do formulário:", formData);
+      
       // Send data via Edge Function
       const { data, error } = await supabase.functions.invoke('send-attendance-email', {
         body: {
@@ -107,8 +110,18 @@ export default function AttendanceForm() {
         }
       });
 
+      console.log("Resposta da edge function:", { data, error });
+
       if (error) {
+        console.error("Erro retornado pela edge function:", error);
         throw error;
+      }
+      
+      if (data?.success) {
+        console.log("✅ Email enviado com sucesso!");
+        console.log("ID do email:", data.emailId);
+      } else {
+        console.warn("⚠️ Resposta sem success flag:", data);
       }
       
       // Add to local students list
