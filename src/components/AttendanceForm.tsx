@@ -2,11 +2,30 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { BookOpen, Users, Calendar, CheckCircle, XCircle, Mail, User } from "lucide-react";
+import {
+  BookOpen,
+  Users,
+  Calendar,
+  CheckCircle,
+  XCircle,
+  Mail,
+  User,
+} from "lucide-react";
 
 interface Student {
   nome: string;
@@ -14,8 +33,13 @@ interface Student {
   idade: number;
   diaAula: string;
   materia: string;
-  status: 'presente' | 'ausente';
+  status: "presente" | "ausente";
   timestamp: Date;
+  // localização opcional
+  latitude?: number;
+  longitude?: number;
+  cep?: string;
+  enderecoCompleto?: string;
 }
 
 const MATERIAS = [
@@ -26,7 +50,7 @@ const MATERIAS = [
   { value: "teologia-pastoral", label: "Teologia Pastoral" },
   { value: "apologetica", label: "Apologética" },
   { value: "missoes", label: "Missões" },
-  { value: "etica-crista", label: "Ética Cristã" }
+  { value: "etica-crista", label: "Ética Cristã" },
 ];
 
 const DIAS_SEMANA = [
@@ -36,8 +60,11 @@ const DIAS_SEMANA = [
   { value: "4", label: "Quinta-feira" },
   { value: "5", label: "Sexta-feira" },
   { value: "6", label: "Sábado" },
-  { value: "7", label: "Domingo" }
+  { value: "7", label: "Domingo" },
 ];
+
+// CEP permitido (normalizado)
+const PERMITTED_CEP = "23017250"; // 23017-250 -> normalizado sem caracteres
 
 export default function AttendanceForm() {
   const [formData, setFormData] = useState({
@@ -45,7 +72,7 @@ export default function AttendanceForm() {
     fullName: "",
     age: "",
     day: "",
-    materia: ""
+    materia: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
@@ -56,39 +83,119 @@ export default function AttendanceForm() {
     // Set current date
     const updateDate = () => {
       const hoje = new Date();
-      const opcoes: Intl.DateTimeFormatOptions = { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
+      const opcoes: Intl.DateTimeFormatOptions = {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       };
-      setCurrentDate(hoje.toLocaleDateString('pt-BR', opcoes));
+      setCurrentDate(hoje.toLocaleDateString("pt-BR", opcoes));
     };
-    
+
     updateDate();
     const interval = setInterval(updateDate, 60000);
     return () => clearInterval(interval);
   }, []);
 
+  // Promise wrapper para geolocation
+  const getCurrentPosition = (): Promise<GeolocationPosition> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocalização não suportada pelo navegador."));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 0,
+      });
+    });
+  };
+
+  // Faz reverse geocoding via Nominatim (OpenStreetMap) para pegar o CEP
+  const reverseGeocodeGetPostalCode = async (
+    lat: number,
+    lon: number
+  ): Promise<{ cep?: string; display_name?: string; rawAddress?: any }> => {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&addressdetails=1`;
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+          // user-agent e referer idealmente configurados em produção; Nominatim pede identificação.
+        },
+      });
+      if (!response.ok)
+        throw new Error(`Reverse geocode failed: ${response.status}`);
+      const json = await response.json();
+      const postcode =
+        json?.address?.postcode ||
+        json?.address?.postal_code ||
+        json?.address?.cep;
+      return {
+        cep: postcode,
+        display_name: json?.display_name,
+        rawAddress: json?.address,
+      };
+    } catch (err) {
+      console.error("Erro reverse geocode:", err);
+      return {};
+    }
+  };
+
+  const normalizeCep = (cep?: string) => {
+    if (!cep) return "";
+    return cep.replace(/\D/g, ""); // remove tudo que não for dígito
+  };
+
+  const sendWhatsApp = (student: Student) => {
+    // número solicitado: 21980791931 -> com código do Brasil (55) fica 5521980791931
+    const phone = "5521980791931";
+    const mensagem = [
+      "Registro de Presença - Escola Teológica Elpis",
+      "",
+      `Nome: ${student.nome}`,
+      `Email: ${student.email}`,
+      `Idade: ${student.idade} anos`,
+      `Matéria: ${getMateriaLabel(student.materia)}`,
+      `Dia: ${getDiaLabel(student.diaAula)}`,
+      `Hora: ${student.timestamp.toLocaleString("pt-BR")}`,
+      `CEP: ${student.cep || "N/A"}`,
+      `Endereço (aprox.): ${student.enderecoCompleto || "N/A"}`,
+      `Coordenadas: ${student.latitude?.toFixed(6) || "N/A"}, ${
+        student.longitude?.toFixed(6) || "N/A"
+      }`,
+    ].join("\n");
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(mensagem)}`;
+    window.open(url, "_blank");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.email || !formData.fullName || !formData.age || !formData.day || !formData.materia) {
+
+    if (
+      !formData.email ||
+      !formData.fullName ||
+      !formData.age ||
+      !formData.day ||
+      !formData.materia
+    ) {
       toast({
         title: "⚠️ Campos obrigatórios",
         description: "Por favor, preencha todos os campos!",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
-    // Check if email already exists
-    const existingStudent = students.find(s => s.email === formData.email);
+    // evita duplicidade por email
+    const existingStudent = students.find((s) => s.email === formData.email);
     if (existingStudent) {
       toast({
         title: "📝 Email já registrado",
         description: "Este e-mail já foi registrado hoje!",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -96,66 +203,93 @@ export default function AttendanceForm() {
     setIsSubmitting(true);
 
     try {
-      console.log("=== ENVIANDO DADOS PARA EDGE FUNCTION ===");
-      console.log("Dados do formulário:", formData);
-      
-      // Send data via Edge Function
-      const { data, error } = await supabase.functions.invoke('send-attendance-email', {
-        body: {
-          email: formData.email,
-          fullName: formData.fullName,
-          age: formData.age,
-          day: formData.day,
-          materia: formData.materia
-        }
-      });
-
-      console.log("Resposta da edge function:", { data, error });
-
-      if (error) {
-        console.error("Erro retornado pela edge function:", error);
-        throw error;
+      // 1) pede localização
+      let position: GeolocationPosition;
+      try {
+        position = await getCurrentPosition();
+      } catch (geoErr: any) {
+        console.error("Erro ao obter localização:", geoErr);
+        toast({
+          title: "Erro de localização",
+          description:
+            "Não foi possível obter sua localização. Verifique permissões do navegador.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
       }
-      
-      if (data?.success) {
-        console.log("✅ Email enviado com sucesso!");
-        console.log("ID do email:", data.emailId);
-      } else {
-        console.warn("⚠️ Resposta sem success flag:", data);
+
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+
+      // 2) reverse geocode para obter CEP
+      const { cep, display_name, rawAddress } =
+        await reverseGeocodeGetPostalCode(lat, lon);
+      const normalized = normalizeCep(cep);
+
+      if (!normalized) {
+        toast({
+          title: "CEP não encontrado",
+          description:
+            "Não foi possível obter o CEP da sua localização. Não é permitido enviar.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
       }
-      
-      // Add to local students list
+
+      // 3) compara com CEP permitido
+      if (normalized !== PERMITTED_CEP) {
+        toast({
+          title: "Localização não autorizada",
+          description: `CEP detectado ${
+            cep || "desconhecido"
+          }. Somente CEP 23017-250 é permitido.`,
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 4) cria o aluno e envia WhatsApp (não faz CSV)
       const newStudent: Student = {
         nome: formData.fullName,
         email: formData.email,
         idade: parseInt(formData.age),
         diaAula: formData.day,
         materia: formData.materia,
-        status: 'presente',
-        timestamp: new Date()
+        status: "presente",
+        timestamp: new Date(),
+        latitude: lat,
+        longitude: lon,
+        cep: cep,
+        enderecoCompleto: display_name,
       };
-      
-      setStudents(prev => [...prev, newStudent]);
-      
+
+      setStudents((prev) => [...prev, newStudent]);
+
+      // envia para o WhatsApp número solicitado
+      sendWhatsApp(newStudent);
+
       toast({
-        title: "✅ Presença registrada com sucesso!",
-        description: "Sua presença foi registrada e um e-mail foi enviado para o professor.",
+        title: "✅ Presença registrada",
+        description: "Local autorizado (CEP OK). Mensagem aberta no WhatsApp.",
       });
-      
-      // Reset form
+
+      // reset form
       setFormData({
-        email: '',
-        fullName: '',
-        age: '',
-        day: '',
-        materia: ''
+        email: "",
+        fullName: "",
+        age: "",
+        day: "",
+        materia: "",
       });
     } catch (error) {
-      console.error('Erro ao registrar presença:', error);
+      console.error("Erro ao registrar presença:", error);
       toast({
-        title: "Erro ao registrar presença",
-        description: "Ocorreu um erro. Tente novamente.",
-        variant: "destructive"
+        title: "Erro",
+        description: "Ocorreu um erro ao processar sua presença.",
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -163,19 +297,22 @@ export default function AttendanceForm() {
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const getMateriaLabel = (value: string) => {
-    return MATERIAS.find(m => m.value === value)?.label || value;
+    return MATERIAS.find((m) => m.value === value)?.label || value;
   };
 
   const getDiaLabel = (value: string) => {
-    return DIAS_SEMANA.find(d => d.value === value)?.label || `Dia ${value}`;
+    return DIAS_SEMANA.find((d) => d.value === value)?.label || `Dia ${value}`;
   };
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--gradient-main)' }}>
+    <div
+      className="min-h-screen"
+      style={{ background: "var(--gradient-main)" }}
+    >
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
@@ -191,27 +328,37 @@ export default function AttendanceForm() {
             <p className="text-sacred/90 text-lg mb-2">
               Chamada Online - Registro de Presença
             </p>
-            <p className="text-sacred/80">
-              📅 {currentDate}
-            </p>
+            <p className="text-sacred/80">📅 {currentDate}</p>
           </div>
 
           {/* Form Card */}
-          <Card className="mb-8 shadow-[var(--shadow-card)] border-0 animate-fade-in" style={{ background: 'var(--gradient-card)' }}>
+          <Card
+            className="mb-8 shadow-[var(--shadow-card)] border-0 animate-fade-in"
+            style={{ background: "var(--gradient-card)" }}
+          >
             <CardHeader className="text-center pb-6">
               <div className="flex justify-center mb-3">
                 <Users className="h-6 w-6 text-divine" />
               </div>
-              <CardTitle className="text-2xl text-divine">Chamada Online</CardTitle>
+              <CardTitle className="text-2xl text-divine">
+                Chamada Online
+              </CardTitle>
               <CardDescription className="text-base">
-                Preencha seus dados para confirmar sua presença
+                Preencha seus dados para confirmar sua presença (só será
+                permitido o registro se o(a) aluno(a) estiver no polo)
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <form
+                onSubmit={handleSubmit}
+                className="grid grid-cols-1 md:grid-cols-2 gap-6"
+              >
                 {/* Nome Completo */}
                 <div className="space-y-2">
-                  <Label htmlFor="fullName" className="text-sm font-medium flex items-center gap-2">
+                  <Label
+                    htmlFor="fullName"
+                    className="text-sm font-medium flex items-center gap-2"
+                  >
                     <User className="h-4 w-4 text-divine" />
                     Nome Completo
                   </Label>
@@ -220,7 +367,9 @@ export default function AttendanceForm() {
                     type="text"
                     placeholder="Digite seu nome completo"
                     value={formData.fullName}
-                    onChange={(e) => handleInputChange("fullName", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("fullName", e.target.value)
+                    }
                     required
                     className="h-12 bg-card/50 border-border/60 focus:border-divine focus:ring-divine/20 transition-[var(--transition-divine)]"
                   />
@@ -228,7 +377,10 @@ export default function AttendanceForm() {
 
                 {/* E-mail */}
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-medium flex items-center gap-2">
+                  <Label
+                    htmlFor="email"
+                    className="text-sm font-medium flex items-center gap-2"
+                  >
                     <Mail className="h-4 w-4 text-divine" />
                     E-mail
                   </Label>
@@ -267,12 +419,15 @@ export default function AttendanceForm() {
                     <Calendar className="h-4 w-4 text-divine" />
                     Dia da Aula
                   </Label>
-                  <Select value={formData.day} onValueChange={(value) => handleInputChange('day', value)}>
+                  <Select
+                    value={formData.day}
+                    onValueChange={(value) => handleInputChange("day", value)}
+                  >
                     <SelectTrigger className="h-12 bg-card/50 border-border/60 focus:border-divine focus:ring-divine/20">
                       <SelectValue placeholder="Selecione o dia" />
                     </SelectTrigger>
                     <SelectContent>
-                      {DIAS_SEMANA.map(dia => (
+                      {DIAS_SEMANA.map((dia) => (
                         <SelectItem key={dia.value} value={dia.value}>
                           {dia.label}
                         </SelectItem>
@@ -286,12 +441,17 @@ export default function AttendanceForm() {
                   <Label className="text-sm font-medium">
                     📚 Matéria/Curso
                   </Label>
-                  <Select value={formData.materia} onValueChange={(value) => handleInputChange('materia', value)}>
+                  <Select
+                    value={formData.materia}
+                    onValueChange={(value) =>
+                      handleInputChange("materia", value)
+                    }
+                  >
                     <SelectTrigger className="h-12 bg-card/50 border-border/60 focus:border-divine focus:ring-divine/20">
                       <SelectValue placeholder="Selecione a matéria" />
                     </SelectTrigger>
                     <SelectContent>
-                      {MATERIAS.map(materia => (
+                      {MATERIAS.map((materia) => (
                         <SelectItem key={materia.value} value={materia.value}>
                           {materia.label}
                         </SelectItem>
@@ -306,10 +466,10 @@ export default function AttendanceForm() {
                     type="submit"
                     disabled={isSubmitting}
                     className="h-14 px-8 text-lg font-semibold transition-[var(--transition-bounce)] hover:scale-[1.02]"
-                    style={{ 
-                      background: 'var(--gradient-main)',
-                      color: 'hsl(var(--sacred-white))',
-                      boxShadow: 'var(--shadow-elevated)'
+                    style={{
+                      background: "var(--gradient-main)",
+                      color: "hsl(var(--sacred-white))",
+                      boxShadow: "var(--shadow-elevated)",
                     }}
                   >
                     {isSubmitting ? "Registrando..." : "✓ Registrar Presença"}
@@ -320,7 +480,7 @@ export default function AttendanceForm() {
           </Card>
 
           {/* Students List */}
-          <Card className="shadow-[var(--shadow-card)] border-0 animate-fade-in" style={{ background: 'var(--gradient-card)' }}>
+          {/* <Card className="shadow-[var(--shadow-card)] border-0 animate-fade-in" style={{ background: 'var(--gradient-card)' }}>
             <CardHeader>
               <CardTitle className="text-2xl text-divine text-center">
                 📋 Lista de Presença - Hoje
@@ -355,6 +515,9 @@ export default function AttendanceForm() {
                             <span>📚 {getMateriaLabel(student.materia)}</span>
                             <span>📅 {getDiaLabel(student.diaAula)}</span>
                           </div>
+                          <div className="text-sm mt-2">
+                            📍 CEP: {student.cep} — {student.enderecoCompleto ?? "endereço não disponível"}
+                          </div>
                         </div>
                       </div>
                       <div className={`px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 ${
@@ -374,7 +537,7 @@ export default function AttendanceForm() {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card> */}
 
           {/* Footer */}
           <div className="text-center mt-8">
