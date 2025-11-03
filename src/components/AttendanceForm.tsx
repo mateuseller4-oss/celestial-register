@@ -64,7 +64,7 @@ const DIAS_SEMANA = [
 ];
 
 // CEP permitido (normalizado)
-const PERMITTED_CEP = "23017250"; // 23017-250 -> normalizado sem caracteres
+// const PERMITTED_CEP = "23017250"; // 23017-250 -> normalizado sem caracteres
 
 export default function AttendanceForm() {
   const [formData, setFormData] = useState({
@@ -203,53 +203,53 @@ export default function AttendanceForm() {
     setIsSubmitting(true);
 
     try {
-      // 1) pede localização
-      let position: GeolocationPosition;
-      try {
-        position = await getCurrentPosition();
-      } catch (geoErr: any) {
-        console.error("Erro ao obter localização:", geoErr);
-        toast({
-          title: "Erro de localização",
-          description:
-            "Não foi possível obter sua localização. Verifique permissões do navegador.",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
+      // // 1) pede localização
+      // let position: GeolocationPosition;
+      // try {
+      //   position = await getCurrentPosition();
+      // } catch (geoErr: any) {
+      //   console.error("Erro ao obter localização:", geoErr);
+      //   toast({
+      //     title: "Erro de localização",
+      //     description:
+      //       "Não foi possível obter sua localização. Verifique permissões do navegador.",
+      //     variant: "destructive",
+      //   });
+      //   setIsSubmitting(false);
+      //   return;
+      // }
 
-      const lat = position.coords.latitude;
-      const lon = position.coords.longitude;
+      // const lat = position.coords.latitude;
+      // const lon = position.coords.longitude;
 
-      // 2) reverse geocode para obter CEP
-      const { cep, display_name, rawAddress } =
-        await reverseGeocodeGetPostalCode(lat, lon);
-      const normalized = normalizeCep(cep);
+      // // 2) reverse geocode para obter CEP
+      // const { cep, display_name, rawAddress } =
+      //   await reverseGeocodeGetPostalCode(lat, lon);
+      // const normalized = normalizeCep(cep);
 
-      if (!normalized) {
-        toast({
-          title: "CEP não encontrado",
-          description:
-            "Não foi possível obter o CEP da sua localização. Não é permitido enviar.",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
+      // if (!normalized) {
+      //   toast({
+      //     title: "CEP não encontrado",
+      //     description:
+      //       "Não foi possível obter o CEP da sua localização. Não é permitido enviar.",
+      //     variant: "destructive",
+      //   });
+      //   setIsSubmitting(false);
+      //   return;
+      // }
 
       // 3) compara com CEP permitido
-      if (normalized !== PERMITTED_CEP) {
-        toast({
-          title: "Localização não autorizada",
-          description: `CEP detectado ${
-            cep || "desconhecido"
-          }. Somente CEP 23017-250 é permitido.`,
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
+      // if (normalized !== PERMITTED_CEP) {
+      //   toast({
+      //     title: "Localização não autorizada",
+      //     description: `CEP detectado ${
+      //       cep || "desconhecido"
+      //     }. Somente CEP 23017-250 é permitido.`,
+      //     variant: "destructive",
+      //   });
+      //   setIsSubmitting(false);
+      //   return;
+      // }
 
       // 4) cria o aluno e envia WhatsApp (não faz CSV)
       const newStudent: Student = {
@@ -260,10 +260,10 @@ export default function AttendanceForm() {
         materia: formData.materia,
         status: "presente",
         timestamp: new Date(),
-        latitude: lat,
-        longitude: lon,
-        cep: cep,
-        enderecoCompleto: display_name,
+        // latitude: lat,
+        // longitude: lon,
+        // cep: cep,
+        // enderecoCompleto: display_name,
       };
 
       setStudents((prev) => [...prev, newStudent]);
